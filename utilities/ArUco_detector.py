@@ -77,13 +77,25 @@ def get_marker_positions(
                 continue
 
             ids = ids.flatten()
-            corners = np.array(corners, dtype=np.float32).reshape(-1, 2)
+            point_map = {}
 
-            if not input_is_undistorted:
-                # Assuming undistort_corners is defined in your environment
-                corners = undistort_corners(corners, cameras[cam_idx])
+            # Iterate over the markers properly
+            for i, marker_id in enumerate(ids):
+                # Extract the 4 corners for THIS specific marker
+                # corners[i] gives us the shape (1, 4, 2) or (4, 2)
+                marker_corners = np.array(corners[i]).reshape(-1, 2)
 
-            point_map = {int(id_): corners[i] for i, id_ in enumerate(ids)}
+                # OPTIONAL: Undistort specific points here if needed
+                if not input_is_undistorted:
+                     # Make sure this returns PIXELS, not normalized coords
+                     marker_corners = undistort_corners(marker_corners, cameras[cam_idx])
+
+                # Calculate the CENTER of the marker (average of 4 corners)
+                # This gives a stable single point representing the marker center
+                marker_center = np.mean(marker_corners, axis=0)
+                
+                point_map[int(marker_id)] = marker_center
+
             image_points_per_cam.append(point_map)
             detected_ids_per_cam.append(set(point_map.keys()))
 
@@ -112,41 +124,72 @@ def get_marker_positions(
 
     return all_marker_positions
 
-def visualize_detections_with_cross(image_rgb, detection, title="ArUco Detections"):
-    # Create a copy to keep the original clean
-    vis_img = image_rgb.copy()
-    
+def extract_2d_marker_positions(detection):
+    marker_data = []
     ids = detection.get("ids")
     corners = detection.get("corners")
 
     if ids is not None and len(ids) > 0:
-        # Drawing colors (BGR format for OpenCV)
-        blue_color = (255, 0, 0) # Pure Blue in RGB (Matplotlib will see it correctly)
-        thickness = 15           # Adjust for "Big" cross appearance
-        cross_size = 60          # Half-length of the cross arms
-
-        for marker_corners in corners:
-            # marker_corners shape is usually (1, 4, 2)
+        ids = ids.flatten()
+        for i, marker_corners in enumerate(corners):
+            # Reshape to (4, 2) to get the four corners
             pts = marker_corners.reshape(4, 2)
             
-            # Calculate the center of the marker
-            center_x = int(np.mean(pts[:, 0]))
-            center_y = int(np.mean(pts[:, 1]))
-
-            # Draw the two diagonal lines for a cross
-            # Line 1: Top-left to bottom-right
-            cv2.line(vis_img, 
-                     (center_x - cross_size, center_y - cross_size), 
-                     (center_x + cross_size, center_y + cross_size), 
-                     blue_color, thickness)
+            # Calculate the centroid (arithmetic mean of corners)
+            center_x = float(np.mean(pts[:, 0]))
+            center_y = float(np.mean(pts[:, 1]))
             
-            # Line 2: Top-right to bottom-left
-            cv2.line(vis_img, 
-                     (center_x + cross_size, center_y - cross_size), 
-                     (center_x - cross_size, center_y + cross_size), 
-                     blue_color, thickness)
+            marker_data.append({
+                "id": int(ids[i]),
+                "center": (center_x, center_y)
+            })
+            
+    return marker_data
 
-        print(f"Found {len(ids)} markers. Visualizing with blue crosses.")
+def get_all_camera_2d_marker_positions(multi_camera_detections):
+    results = {}
+    
+    for cam_id, detection in multi_camera_detections.items():
+        results[cam_id] = extract_2d_marker_positions(detection)
+        
+    return results
+
+def visualize_detections_on_image(image_rgb, detection, title="ArUco Detections"):
+    vis_img = image_rgb.copy()
+    
+    # Use the helper to get clean data
+    markers = extract_2d_marker_positions(detection)
+
+    if markers:
+        # --- Visual Settings ---
+        circle_color = (255, 0, 0)         # Blue
+        text_color_inner = (0, 0, 0)       # Black
+        text_color_outer = (255, 255, 255) # White
+        
+        radius = 60
+        thickness_circle = 10
+        font_scale = 3.6
+        font_thickness = 12
+        outline_thickness = 25
+
+        for marker in markers:
+            m_id = marker["id"]
+            center_x, center_y = map(int, marker["center"])
+
+            # 1. Draw the Circle
+            cv2.circle(vis_img, (center_x, center_y), radius, circle_color, thickness_circle)
+            
+            # Text Position logic
+            text_pos = (center_x + radius + 10, center_y + 10)
+            text_str = str(m_id)
+
+            # 2. Draw the High-Contrast Text (Outer then Inner)
+            cv2.putText(vis_img, text_str, text_pos, cv2.FONT_HERSHEY_SIMPLEX, 
+                        font_scale, text_color_outer, outline_thickness)
+            cv2.putText(vis_img, text_str, text_pos, cv2.FONT_HERSHEY_SIMPLEX, 
+                        font_scale, text_color_inner, font_thickness)
+
+        print(f"Found {len(markers)} markers. Visualizing detections.")
     else:
         print("No markers detected.")
 
@@ -156,9 +199,7 @@ def visualize_detections_with_cross(image_rgb, detection, title="ArUco Detection
     plt.axis('off')
     plt.show()
 
-    return vis_img
-
-def add_markers_markers_to_fig(fig, marker_data):
+def add_markers_to_fig(fig, marker_data):
     # 1. Process Marker Data
     # We collect all points into a single (N, 3) numpy array for speed
     all_points = []
@@ -167,7 +208,7 @@ def add_markers_markers_to_fig(fig, marker_data):
     for frame_idx, markers in marker_data.items():
         for marker_id, pos in markers.items():
             all_points.append(pos)
-            marker_labels.append(f"F{frame_idx}_ID{marker_id}")
+            marker_labels.append(f"M{marker_id}")
     
     if all_points:
         pts_np = np.array(all_points) # Shape: (N, 3)
@@ -180,6 +221,36 @@ def add_markers_markers_to_fig(fig, marker_data):
             marker=dict(size=5, color='blue', opacity=0.8),
             text=marker_labels,
             name='Markers'
+        ))
+
+    return fig
+
+def add_skeleton_to_fig(fig, marker_data, marker_pairs):
+    line_x = []
+    line_y = []
+    line_z = []
+
+    for frame_idx, markers in marker_data.items():
+        for (m_start, m_end) in marker_pairs:
+            # Check if both markers exist in the current frame
+            if m_start in markers and m_end in markers:
+                p1 = markers[m_start]
+                p2 = markers[m_end]
+
+                # Append segment: Start -> End -> None (to break the line)
+                line_x.extend([p1[0], p2[0], None])
+                line_y.extend([p1[1], p2[1], None])
+                line_z.extend([p1[2], p2[2], None])
+
+    if line_x:
+        fig.add_trace(go.Scatter3d(
+            x=line_x,
+            y=line_y,
+            z=line_z,
+            mode='lines',
+            line=dict(color='red', width=3),
+            name='Connections',
+            connectgaps=False # Ensure segments stay separated
         ))
 
     return fig
