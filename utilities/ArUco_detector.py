@@ -158,9 +158,7 @@ def visualize_detections_with_cross(image_rgb, detection, title="ArUco Detection
 
     return vis_img
 
-def visualize_markers_3d_plotly(marker_data, cameras=None):
-    fig = go.Figure()
-
+def add_markers_markers_to_fig(fig, marker_data):
     # 1. Process Marker Data
     # We collect all points into a single (N, 3) numpy array for speed
     all_points = []
@@ -184,41 +182,82 @@ def visualize_markers_3d_plotly(marker_data, cameras=None):
             name='Markers'
         ))
 
-    # 2. Add Camera Positions from the Camera Class
-    if cameras:
-        cam_positions = []
-        cam_names = []
-        
-        for cam in cameras:
-            pos = cam.world_pos  #
-            if pos is not None:
-                cam_positions.append(pos)
-                cam_names.append(cam.name)
-        
-        if cam_positions:
-            cams_np = np.array(cam_positions)
+    return fig
+
+def add_cameras_to_fig(fig, cameras, scale=0.2): 
+    # Lists for frustum lines
+    all_x, all_y, all_z = [], [], []
+    
+    # Lists for camera centers and labels
+    cam_centers = []
+    cam_labels = []
+
+    for cam in cameras:
+        if cam.extrinsic_matrix is None:
+            continue
             
-            fig.add_trace(go.Scatter3d(
-                x=cams_np[:, 0],
-                y=cams_np[:, 1],
-                z=cams_np[:, 2],
-                mode='markers+text',
-                marker=dict(size=4, color='black', symbol='diamond'),
-                text=cam_names,
-                name='Cameras'
-            ))
+        # The Camera-to-World transformation
+        # R_cw = R^T, t_cw = -R^T @ t
+        R_cw = cam.rot.T
+        t_cw = cam.world_pos # Uses your property: -self.rot.T @ self.t
+        
+        cam_centers.append(t_cw)
+        cam_labels.append(cam.name if cam.name else "Unknown")
+        
+        # --- Frustum Calculation ---
+        # Define pyramid corners in local camera space (Z is forward)
+        s = scale
+        corners_cam = np.array([
+            [0, 0, 0],          # 0: Camera Center
+            [-s, -s, s*1.5],    # 1: Top-Left
+            [s, -s, s*1.5],     # 2: Top-Right
+            [s, s, s*1.5],      # 3: Bottom-Right
+            [-s, s, s*1.5],     # 4: Bottom-Left
+        ])
+        
+        # Transform corners to World Space: P_world = R_cw @ P_cam + t_cw
+        p = (R_cw @ corners_cam.T).T + t_cw
+        
+        # Line sequence to draw the wireframe pyramid
+        indices = [0, 1, 2, 0, 2, 3, 0, 3, 4, 0, 4, 1, 1, 2, 3, 4, 1]
+        for idx in indices:
+            all_x.append(p[idx, 0]); all_y.append(p[idx, 1]); all_z.append(p[idx, 2])
+        # Add None to break the line between different cameras
+        all_x.append(None); all_y.append(None); all_z.append(None)
 
-    # 3. Scene Layout & Calibration Alignment
-    # The dome Z-axis is forward into the scene
-    fig.update_layout(
-        title="Dome ArUco 3D Locations (Numpy)",
-        scene=dict(
-            aspectmode='data',  # Keeps 1:1:1 scale proportions
-            xaxis_title='X (meters)',
-            yaxis_title='Y (meters)',
-            zaxis_title='Z (meters)',
-        ),
-        margin=dict(l=0, r=0, b=0, t=50)
-    )
+    # 1. Add Frustums Trace
+    fig.add_trace(go.Scatter3d(
+        x=all_x, y=all_y, z=all_z,
+        mode='lines',
+        line=dict(color='rgba(100, 100, 255, 0.6)', width=2),
+        name='Frustums',
+        hoverinfo='none'
+    ))
 
+    # 2. Add Camera Centers Trace
+    if cam_centers:
+        cam_centers = np.array(cam_centers)
+        fig.add_trace(go.Scatter3d(
+            x=cam_centers[:, 0],
+            y=cam_centers[:, 1],
+            z=cam_centers[:, 2],
+            mode='markers+text',
+            marker=dict(
+                size=5,
+                color=np.arange(len(cam_centers)), 
+                colorscale='Viridis',
+                opacity=0.9
+            ),
+            text=cam_labels,
+            textposition="top center",
+            name='Camera Positions'
+        ))
+
+    # 3. Add World Origin (Stage Center)
+    fig.add_trace(go.Scatter3d(
+        x=[0], y=[0], z=[0],
+        mode='markers',
+        marker=dict(size=8, color='red', symbol='cross'),
+        name='Stage Center'
+    ))
     return fig
