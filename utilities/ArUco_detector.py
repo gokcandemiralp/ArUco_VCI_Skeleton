@@ -1,8 +1,11 @@
+import os
 import cv2
 import matplotlib.pyplot as plt
 import numpy as np
 import plotly.graph_objects as go
+import json
 from collections import Counter, defaultdict
+import re
 
 from .camera import Camera
 
@@ -332,3 +335,59 @@ def add_cameras_to_fig(fig, cameras, scale=0.2):
         name='Stage Center'
     ))
     return fig
+
+def detections_to_json(marker_positions, output_path):
+    json_data = {}
+    for frame_idx, markers in marker_positions.items():
+        frame_key = str(frame_idx)
+        json_data[frame_key] = {}
+        for marker_id, position_array in markers.items():
+            json_data[frame_key][str(marker_id)] = position_array.tolist()
+
+    # 2. Convert to JSON string with standard indentation first
+    json_str = json.dumps(json_data, indent=4)
+
+    # 3. Use Regex to collapse lists [ ... ] onto a single line
+    # Matches brackets with newlines inside and removes the whitespace/newlines
+    json_str = re.sub(
+        r'\[\s+([^]]+)\s+\]',  # Pattern: [ followed by content and whitespace ]
+        lambda m: '[' + ', '.join([x.strip() for x in m.group(1).split(',')]) + ']',
+        json_str
+    )
+
+    # 4. Ensure directory exists
+    directory = os.path.dirname(output_path)
+    if directory:
+        os.makedirs(directory, exist_ok=True)
+
+    # 5. Write the formatted string to file
+    with open(output_path, 'w') as f:
+        f.write(json_str)
+
+    print(f"Saved formatted marker positions to {output_path}")
+
+    import numpy as np
+
+def clean_invalid_markers(corners, ids, valid_range=(0, 11)):
+    if ids is None:
+        return corners, ids
+
+    # Create a boolean mask for valid IDs (ids is shape (N, 1))
+    # We flatten it to shape (N,) for simple boolean comparison
+    mask = (ids.flatten() >= valid_range[0]) & (ids.flatten() <= valid_range[1])
+
+    # If all are valid, return as is
+    if np.all(mask):
+        return corners, ids
+
+    # If none are valid, return empty/None structure
+    if not np.any(mask):
+        return (), None
+
+    # Filter IDs using the mask
+    cleaned_ids = ids[mask]
+
+    # Filter Corners (corners is a tuple, so we use zip with the mask)
+    cleaned_corners = tuple([c for c, is_valid in zip(corners, mask) if is_valid])
+
+    return cleaned_corners, cleaned_ids
