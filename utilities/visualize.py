@@ -1,6 +1,6 @@
 import os
 import matplotlib.pyplot as plt
-from matplotlib.animation import FuncAnimation, PillowWriter
+import matplotlib.animation as animation
 import plotly.graph_objects as go
 import numpy as np
 import cv2
@@ -142,33 +142,39 @@ def add_cameras_to_fig(fig, cameras, scale=0.2):
     return fig
 
 def create_error_timeline_gif(differences, output_path="error_timeline.gif", duration_ms=100):
-    # 1. Prepare the data
-    # Sort frames numerically to ensure the timeline is in order
+    # --- 1. Prepare the data ---
+    # Sort frames numerically
     sorted_frame_ids = sorted([int(k) for k in differences.keys()])
     
     frames = []
     avg_errors = []
     
     for fid in sorted_frame_ids:
-        # Convert back to string key to access the dictionary
+        frames.append(fid) # Always add the frame ID to keep x-axis continuous
+        
         fid_str = str(fid)
         diff_data = differences.get(fid_str, {})
         
         if diff_data:
+            # Calculate average if data exists
             avg_error = sum(diff_data.values()) / len(diff_data)
-            frames.append(fid)
             avg_errors.append(avg_error)
+        else:
+            # Append None to create a gap in the line plot
+            avg_errors.append(None)
     
-    if not frames:
-        print("No data to plot.")
+    # Filter out None values just to calculate axis limits safely
+    valid_errors = [e for e in avg_errors if e is not None]
+    
+    if not valid_errors:
+        print("No valid data points to plot.")
         return
 
-    # 2. Setup the Plot
+    # --- 2. Setup the Plot ---
     fig, ax = plt.subplots(figsize=(10, 6))
     
-    # Plot the static average error line
-    # We plot this once; the animation is just the cursor moving over it.
-    ax.plot(frames, avg_errors, color='royalblue', linewidth=2, label='Avg Error (m)')
+    # Plot the line (Matplotlib will break the line where data is None)
+    line, = ax.plot(frames, avg_errors, color='royalblue', linewidth=2, label='Avg Error (m)')
     
     # Styling
     ax.set_title(f'Average Euclidean Error per Frame', fontsize=14)
@@ -176,54 +182,53 @@ def create_error_timeline_gif(differences, output_path="error_timeline.gif", dur
     ax.set_ylabel('Error (meters)', fontsize=12)
     ax.grid(True, linestyle=':', alpha=0.6)
     
-    # Set axis limits with some padding
+    # Set axis limits
     ax.set_xlim(min(frames), max(frames))
-    y_max = max(avg_errors) if avg_errors else 1.0
+    y_max = max(valid_errors)
     ax.set_ylim(0, y_max * 1.1) 
 
-    # 3. Initialize the moving cursor (vertical line)
-    # We initialize it at the first frame
-    cursor = ax.axvline(x=frames[0], color='red', linestyle='--', linewidth=2, label='Current Frame')
+    # --- 3. Initialize Animation Elements ---
+    # Vertical cursor line
+    cursor = ax.axvline(x=frames[0], color='red', linestyle='--', linewidth=2, alpha=0.8)
     
-    # Add a text annotation for the current value (optional but helpful)
+    # Text annotation box
     text_annotation = ax.text(0.02, 0.95, '', transform=ax.transAxes, 
                               verticalalignment='top', bbox=dict(boxstyle='round', facecolor='white', alpha=0.8))
 
     ax.legend(loc='upper right')
 
-    # 4. Define the Update Function for Animation
+    # --- 4. Define Update Function ---
     def update(frame_idx):
         # frame_idx is the index in our lists (0 to len(frames)-1)
-        current_frame_id = frames[frame_idx]
+        current_fid = frames[frame_idx]
         current_error = avg_errors[frame_idx]
         
-        # Update cursor position
-        cursor.set_xdata([current_frame_id, current_frame_id])
+        # Move the red cursor
+        cursor.set_xdata([current_fid])
         
         # Update text
-        text_annotation.set_text(f'Frame: {current_frame_id}\nError: {current_error:.4f} m')
+        if current_error is not None:
+            status_text = f"Frame: {current_fid}\nError: {current_error:.4f} m"
+        else:
+            status_text = f"Frame: {current_fid}\nError: No Data"
+            
+        text_annotation.set_text(status_text)
         
         return cursor, text_annotation
 
-    # 5. Generate and Save Animation
-    # Calculate FPS based on duration_ms
-    fps = 1000.0 / duration_ms
-    
-    print(f"Generating GIF with {len(frames)} frames at {fps:.2f} FPS...")
-    
-    ani = FuncAnimation(
+    # --- 5. Create and Save Animation ---
+    print(f"Generating GIF with {len(frames)} frames...")
+    ani = animation.FuncAnimation(
         fig, 
         update, 
-        frames=len(frames), 
-        blit=True # Blit optimizes drawing by only re-drawing changed artists
+        frames=len(frames), # Iterate over the number of indices
+        interval=duration_ms, 
+        blit=True
     )
     
-    # Use PillowWriter for GIF creation
-    writer = PillowWriter(fps=fps)
-    ani.save(output_path, writer=writer)
-    
-    plt.close(fig) # Close the plot to free memory
-    print(f"Done! GIF saved to: {os.path.abspath(output_path)}")
+    ani.save(output_path, writer='pillow')
+    print(f"Saved to {output_path}")
+    plt.close()
 
 def visualize_detections_on_image(image_rgb, detection, title="ArUco Detections"):
     vis_img = image_rgb.copy()
