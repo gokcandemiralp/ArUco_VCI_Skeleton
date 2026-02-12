@@ -1,0 +1,101 @@
+Loading Frames & Detecting:   5%|▌         | 11/208 [02:05<37:32, 11.43s/it]
+[WARNING] Frame 10: Found unexpected marker IDs outside 0-11 range: [np.int32(17)]
+Loading Frames & Detecting:   8%|▊         | 17/208 [03:13<36:07, 11.35s/it]
+[WARNING] Frame 16: Found unexpected marker IDs outside 0-11 range: [np.int32(17)]
+Loading Frames & Detecting:   9%|▊         | 18/208 [03:25<36:31, 11.54s/it]
+[WARNING] Frame 17: Found unexpected marker IDs outside 0-11 range: [np.int32(37)]
+Loading Frames & Detecting:   9%|▉         | 19/208 [03:36<36:05, 11.46s/it]
+[WARNING] Frame 18: Found unexpected marker IDs outside 0-11 range: [np.int32(17)]
+Loading Frames & Detecting:  10%|▉         | 20/208 [03:48<35:44, 11.41s/it]
+[WARNING] Frame 19: Found unexpected marker IDs outside 0-11 range: [np.int32(17), np.int32(37)]
+Loading Frames & Detecting:  15%|█▍        | 31/208 [06:05<37:34, 12.74s/it]
+[WARNING] Frame 30: Found unexpected marker IDs outside 0-11 range: [np.int32(37)]
+Loading Frames & Detecting:  19%|█▉        | 39/208 [07:46<35:27, 12.59s/it]
+[WARNING] Frame 38: Found unexpected marker IDs outside 0-11 range: [np.int32(37)]
+Loading Frames & Detecting:  21%|██        | 43/208 [08:36<34:30, 12.55s/it]
+[WARNING] Frame 42: Found unexpected marker IDs outside 0-11 range: [np.int32(17)]
+Loading Frames & Detecting:  25%|██▍       | 51/208 [10:17<32:43, 12.51s/it]
+[WARNING] Frame 50: Found unexpected marker IDs outside 0-11 range: [np.int32(37)]
+Loading Frames & Detecting:  26%|██▋       | 55/208 [11:07<31:56, 12.53s/it]
+[WARNING] Frame 54: Found unexpected marker IDs outside 0-11 range: [np.int32(37)]
+Loading Frames & Detecting:  28%|██▊       | 58/208 [11:45<31:29, 12.60s/it]
+[WARNING] Frame 57: Found unexpected marker IDs outside 0-11 range: [np.int32(17)]
+Loading Frames & Detecting:  31%|███▏      | 65/208 [13:12<29:42, 12.47s/it]
+[WARNING] Frame 64: Found unexpected marker IDs outside 0-11 range: [np.int32(37)]
+Loading Frames & Detecting:  38%|███▊      | 79/208 [16:07<26:52, 12.50s/it]
+[WARNING] Frame 78: Found unexpected marker IDs outside 0-11 range: [np.int32(17)]
+Loading Frames & Detecting:  43%|████▎     | 89/208 [18:12<24:48, 12.51s/it]
+[WARNING] Frame 88: Found unexpected marker IDs outside 0-11 range: [np.int32(49)]
+Loading Frames & Detecting:  43%|████▎     | 90/208 [18:25<24:35, 12.50s/it]
+[WARNING] Frame 89: Found unexpected marker IDs outside 0-11 range: [np.int32(37)]
+Loading Frames & Detecting:  51%|█████▏    | 107/208 [22:02<21:42, 12.89s/it]
+[WARNING] Frame 106: Found unexpected marker IDs outside 0-11 range: [np.int32(49)]
+Loading Frames & Detecting:  56%|█████▋    | 117/208 [24:09<19:23, 12.78s/it]
+[WARNING] Frame 116: Found unexpected marker IDs outside 0-11 range: [np.int32(17)]
+Loading Frames & Detecting:  62%|██████▎   | 130/208 [26:42<15:03, 11.58s/it]
+[WARNING] Frame 129: Found unexpected marker IDs outside 0-11 range: [np.int32(17)]
+Loading Frames & Detecting:  64%|██████▍   | 133/208 [27:16<14:20, 11.47s/it]
+[WARNING] Frame 132: Found unexpected marker IDs outside 0-11 range: [np.int32(49)]
+Loading Frames & Detecting:  72%|███████▏  | 150/208 [30:47<12:14, 12.66s/it]
+[WARNING] Frame 149: Found unexpected marker IDs outside 0-11 range: [np.int32(17)]
+Loading Frames & Detecting:  74%|███████▍  | 154/208 [31:37<11:23, 12.67s/it]
+[WARNING] Frame 153: Found unexpected marker IDs outside 0-11 range: [np.int32(49)]
+Loading Frames & Detecting:  84%|████████▍ | 175/208 [36:08<07:07, 12.96s/it]
+[WARNING] Frame 174: Incomplete marker set.
+          Found 11/12 unique valid IDs.
+          Missing IDs: [3]
+Loading Frames & Detecting:  85%|████████▍ | 176/208 [36:21<06:55, 12.97s/it]
+[WARNING] Frame 175: Incomplete marker set.
+          Found 11/12 unique valid IDs.
+          Missing IDs: [3]
+Loading Frames & Detecting:  85%|████████▌ | 177/208 [36:34<06:41, 12.96s/it]
+[WARNING] Frame 176: Incomplete marker set.
+          Found 11/12 unique valid IDs.
+          Missing IDs: [3]
+Loading Frames & Detecting:  86%|████████▌ | 178/208 [36:47<06:29, 12.99s/it]
+[WARNING] Frame 177: Incomplete marker set.
+          Found 11/12 unique valid IDs.
+          Missing IDs: [3]
+Loading Frames & Detecting:  86%|████████▌ | 179/208 [37:00<06:18, 13.05s/it]
+[WARNING] Frame 178: Incomplete marker set.
+          Found 11/12 unique valid IDs.
+          Missing IDs: [3]
+Loading Frames & Detecting:  87%|████████▋ | 180/208 [37:14<06:12, 13.29s/it]
+[WARNING] Frame 179: Incomplete marker set.
+          Found 11/12 unique valid IDs.
+          Missing IDs: [3]
+Loading Frames & Detecting:  87%|████████▋ | 181/208 [37:27<05:59, 13.32s/it]
+[WARNING] Frame 180: Found unexpected marker IDs outside 0-11 range: [np.int32(37)]
+
+[WARNING] Frame 180: Incomplete marker set.
+          Found 11/12 unique valid IDs.
+          Missing IDs: [3]
+Loading Frames & Detecting:  88%|████████▊ | 182/208 [37:40<05:43, 13.21s/it]
+[WARNING] Frame 181: Incomplete marker set.
+          Found 11/12 unique valid IDs.
+          Missing IDs: [3]
+Loading Frames & Detecting:  88%|████████▊ | 183/208 [37:53<05:25, 13.01s/it]
+[WARNING] Frame 182: Incomplete marker set.
+          Found 11/12 unique valid IDs.
+          Missing IDs: [3]
+Loading Frames & Detecting:  88%|████████▊ | 184/208 [38:06<05:10, 12.94s/it]
+[WARNING] Frame 183: Incomplete marker set.
+          Found 11/12 unique valid IDs.
+          Missing IDs: [3]
+Loading Frames & Detecting:  89%|████████▉ | 185/208 [38:19<04:57, 12.93s/it]
+[WARNING] Frame 184: Incomplete marker set.
+          Found 11/12 unique valid IDs.
+          Missing IDs: [3]
+Loading Frames & Detecting:  89%|████████▉ | 186/208 [38:32<04:45, 12.98s/it]
+[WARNING] Frame 185: Incomplete marker set.
+          Found 11/12 unique valid IDs.
+          Missing IDs: [3]
+Loading Frames & Detecting:  90%|████████▉ | 187/208 [38:45<04:33, 13.04s/it]
+[WARNING] Frame 186: Incomplete marker set.
+          Found 11/12 unique valid IDs.
+          Missing IDs: [3]
+Loading Frames & Detecting:  93%|█████████▎| 194/208 [40:13<02:58, 12.77s/it]
+[WARNING] Frame 193: Incomplete marker set.
+          Found 11/12 unique valid IDs.
+          Missing IDs: [3]
+Loading Frames & Detecting: 100%|██████████| 208/208 [43:13<00:00, 12.47s/it]
