@@ -1,10 +1,9 @@
 import os
 import cv2
-import matplotlib.pyplot as plt
 import numpy as np
-import plotly.graph_objects as go
+import math
 import json
-from collections import Counter, defaultdict
+from collections import Counter
 import re
 
 from .camera import Camera
@@ -157,185 +156,6 @@ def get_all_camera_2d_marker_positions(multi_camera_detections):
         
     return results
 
-def visualize_detections_on_image(image_rgb, detection, title="ArUco Detections"):
-    vis_img = image_rgb.copy()
-    
-    # Use the helper to get clean data
-    markers = extract_2d_marker_positions(detection)
-
-    if markers:
-        # --- Visual Settings ---
-        circle_color = (255, 0, 0)         # Blue
-        text_color_inner = (0, 0, 0)       # Black
-        text_color_outer = (255, 255, 255) # White
-        
-        radius = 60
-        thickness_circle = 10
-        font_scale = 3.6
-        font_thickness = 12
-        outline_thickness = 25
-
-        for marker in markers:
-            m_id = marker["id"]
-            center_x, center_y = map(int, marker["center"])
-
-            # 1. Draw the Circle
-            cv2.circle(vis_img, (center_x, center_y), radius, circle_color, thickness_circle)
-            
-            # Text Position logic
-            text_pos = (center_x + radius + 10, center_y + 10)
-            text_str = str(m_id)
-
-            # 2. Draw the High-Contrast Text (Outer then Inner)
-            cv2.putText(vis_img, text_str, text_pos, cv2.FONT_HERSHEY_SIMPLEX, 
-                        font_scale, text_color_outer, outline_thickness)
-            cv2.putText(vis_img, text_str, text_pos, cv2.FONT_HERSHEY_SIMPLEX, 
-                        font_scale, text_color_inner, font_thickness)
-
-        print(f"Found {len(markers)} markers. Visualizing detections.")
-    else:
-        print("No markers detected.")
-
-    plt.figure(figsize=(12, 8))
-    plt.imshow(vis_img)
-    plt.title(title)
-    plt.axis('off')
-    plt.show()
-
-def add_markers_to_fig(fig, marker_data):
-    # 1. Process Marker Data
-    # We collect all points into a single (N, 3) numpy array for speed
-    all_points = []
-    marker_labels = []
-    
-    for frame_idx, markers in marker_data.items():
-        for marker_id, pos in markers.items():
-            all_points.append(pos)
-            marker_labels.append(f"M{marker_id}")
-    
-    if all_points:
-        pts_np = np.array(all_points) # Shape: (N, 3)
-        
-        fig.add_trace(go.Scatter3d(
-            x=pts_np[:, 0],
-            y=pts_np[:, 1],
-            z=pts_np[:, 2],
-            mode='markers+text',
-            marker=dict(size=5, color='blue', opacity=0.8),
-            text=marker_labels,
-            name='Markers'
-        ))
-
-    return fig
-
-def add_skeleton_to_fig(fig, marker_data, marker_pairs):
-    line_x = []
-    line_y = []
-    line_z = []
-
-    for frame_idx, markers in marker_data.items():
-        for (m_start, m_end) in marker_pairs:
-            # Check if both markers exist in the current frame
-            if m_start in markers and m_end in markers:
-                p1 = markers[m_start]
-                p2 = markers[m_end]
-
-                # Append segment: Start -> End -> None (to break the line)
-                line_x.extend([p1[0], p2[0], None])
-                line_y.extend([p1[1], p2[1], None])
-                line_z.extend([p1[2], p2[2], None])
-
-    if line_x:
-        fig.add_trace(go.Scatter3d(
-            x=line_x,
-            y=line_y,
-            z=line_z,
-            mode='lines',
-            line=dict(color='red', width=3),
-            name='Connections',
-            connectgaps=False # Ensure segments stay separated
-        ))
-
-    return fig
-
-def add_cameras_to_fig(fig, cameras, scale=0.2): 
-    # Lists for frustum lines
-    all_x, all_y, all_z = [], [], []
-    
-    # Lists for camera centers and labels
-    cam_centers = []
-    cam_labels = []
-
-    for cam in cameras:
-        if cam.extrinsic_matrix is None:
-            continue
-            
-        # The Camera-to-World transformation
-        # R_cw = R^T, t_cw = -R^T @ t
-        R_cw = cam.rot.T
-        t_cw = cam.world_pos # Uses your property: -self.rot.T @ self.t
-        
-        cam_centers.append(t_cw)
-        cam_labels.append(cam.name if cam.name else "Unknown")
-        
-        # --- Frustum Calculation ---
-        # Define pyramid corners in local camera space (Z is forward)
-        s = scale
-        corners_cam = np.array([
-            [0, 0, 0],          # 0: Camera Center
-            [-s, -s, s*1.5],    # 1: Top-Left
-            [s, -s, s*1.5],     # 2: Top-Right
-            [s, s, s*1.5],      # 3: Bottom-Right
-            [-s, s, s*1.5],     # 4: Bottom-Left
-        ])
-        
-        # Transform corners to World Space: P_world = R_cw @ P_cam + t_cw
-        p = (R_cw @ corners_cam.T).T + t_cw
-        
-        # Line sequence to draw the wireframe pyramid
-        indices = [0, 1, 2, 0, 2, 3, 0, 3, 4, 0, 4, 1, 1, 2, 3, 4, 1]
-        for idx in indices:
-            all_x.append(p[idx, 0]); all_y.append(p[idx, 1]); all_z.append(p[idx, 2])
-        # Add None to break the line between different cameras
-        all_x.append(None); all_y.append(None); all_z.append(None)
-
-    # 1. Add Frustums Trace
-    fig.add_trace(go.Scatter3d(
-        x=all_x, y=all_y, z=all_z,
-        mode='lines',
-        line=dict(color='rgba(100, 100, 255, 0.6)', width=2),
-        name='Frustums',
-        hoverinfo='none'
-    ))
-
-    # 2. Add Camera Centers Trace
-    if cam_centers:
-        cam_centers = np.array(cam_centers)
-        fig.add_trace(go.Scatter3d(
-            x=cam_centers[:, 0],
-            y=cam_centers[:, 1],
-            z=cam_centers[:, 2],
-            mode='markers+text',
-            marker=dict(
-                size=5,
-                color=np.arange(len(cam_centers)), 
-                colorscale='Viridis',
-                opacity=0.9
-            ),
-            text=cam_labels,
-            textposition="top center",
-            name='Camera Positions'
-        ))
-
-    # 3. Add World Origin (Stage Center)
-    fig.add_trace(go.Scatter3d(
-        x=[0], y=[0], z=[0],
-        mode='markers',
-        marker=dict(size=8, color='red', symbol='cross'),
-        name='Stage Center'
-    ))
-    return fig
-
 def detections_to_json(marker_positions, output_path):
     json_data = {}
     for frame_idx, markers in marker_positions.items():
@@ -391,3 +211,66 @@ def clean_invalid_markers(corners, ids, valid_range=(0, 11)):
     cleaned_corners = tuple([c for c, is_valid in zip(corners, mask) if is_valid])
 
     return cleaned_corners, cleaned_ids
+
+# Fix the idx's for ids to correspond exactly so for example the joint indext 0 must correspond to right hand wrist for both of them
+# Change the coordinate scaling, convert everything to meters 
+# The predictions have a completely different coordinate system, swap the y and z coordinates and negate the whole coordinate
+def convert_predictions(pred_data, mapping):
+    processed_predictions = {}
+    
+    for frame_id, joints in pred_data.items():
+        processed_predictions[frame_id] = {}
+        
+        for pred_idx, gt_idx in mapping:
+            # JSON keys are strings, mapping provides ints
+            pred_key = str(pred_idx)
+            gt_key = str(gt_idx)
+            
+            if pred_key in joints:
+                raw_coords = joints[pred_key]
+                x_mm, y_mm, z_mm = raw_coords
+                
+                # Scale to meters
+                x_m = x_mm / 1000.0
+                y_m = y_mm / 1000.0
+                z_m = z_mm / 1000.0
+                
+                # Transform coordinate system
+                # "Swap y and z coordinates and negate the whole coordinate"
+                # Input: (x, y, z)
+                # Swap Y/Z: (x, z, y)
+                # Negate: (-x, -z, -y)
+                new_x = -x_m
+                new_y = -z_m
+                new_z = -y_m
+                
+                processed_predictions[frame_id][gt_key] = [new_x, new_y, new_z]
+                
+    return processed_predictions
+
+def compare_sequences(ground_truth, processed_preds):
+    frame_diffs = {}
+    
+    # Iterate over frames present in Ground Truth
+    for frame_id, gt_joints in ground_truth.items():
+        if frame_id not in processed_preds:
+            continue
+            
+        pred_joints = processed_preds[frame_id]
+        frame_diffs[frame_id] = {}
+        
+        # Iterate over joints present in Ground Truth frame
+        for joint_id, gt_coord in gt_joints.items():
+            if joint_id in pred_joints:
+                pred_coord = pred_joints[joint_id]
+                
+                # Calculate Euclidean distance
+                dist = math.sqrt(
+                    (gt_coord[0] - pred_coord[0])**2 +
+                    (gt_coord[1] - pred_coord[1])**2 +
+                    (gt_coord[2] - pred_coord[2])**2
+                )
+                
+                frame_diffs[frame_id][joint_id] = dist
+                
+    return frame_diffs
