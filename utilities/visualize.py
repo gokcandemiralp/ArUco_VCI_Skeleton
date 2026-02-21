@@ -276,7 +276,7 @@ def visualize_detections_on_image(image_rgb, detection, title="ArUco Detections"
     plt.axis('off')
     plt.show()
 
-def create_speed_timeline_gif(predictions, output_path="speed_timeline.gif", duration_ms=100, fps=30, title = 'Average Joint Speed per Frame'):
+def create_speed_timeline_gif(predictions, output_path="speed_timeline.gif", duration_ms=100, fps=30, title = 'Average Joint Speed per Frame', line_color='darkorange'):
     # --- 1. Prepare the data ---
     # Sort frames numerically
     sorted_frame_ids = sorted([int(k) for k in predictions.keys()])
@@ -337,7 +337,7 @@ def create_speed_timeline_gif(predictions, output_path="speed_timeline.gif", dur
     fig, ax = plt.subplots(figsize=(10, 6))
     
     # Plot the line (Matplotlib will break the line where data is None)
-    line, = ax.plot(frames, avg_speeds, color='darkorange', linewidth=2, label='Avg Speed (m/s)')
+    line, = ax.plot(frames, avg_speeds, color=line_color, linewidth=2, label='Avg Speed (m/s)')
     
     # Styling
     ax.set_title(title, fontsize=14)
