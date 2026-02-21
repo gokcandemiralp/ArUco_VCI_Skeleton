@@ -1,4 +1,5 @@
 import os
+import math
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 import plotly.graph_objects as go
@@ -274,3 +275,119 @@ def visualize_detections_on_image(image_rgb, detection, title="ArUco Detections"
     plt.title(title)
     plt.axis('off')
     plt.show()
+
+def create_speed_timeline_gif(predictions, output_path="speed_timeline.gif", duration_ms=100, fps=30, title = 'Average Joint Speed per Frame'):
+    # --- 1. Prepare the data ---
+    # Sort frames numerically
+    sorted_frame_ids = sorted([int(k) for k in predictions.keys()])
+    
+    frames = []
+    avg_speeds = []
+    
+    for i in range(len(sorted_frame_ids)):
+        curr_fid = sorted_frame_ids[i]
+        frames.append(curr_fid)
+        
+        curr_fid_str = str(curr_fid)
+        curr_data = predictions.get(curr_fid_str, {})
+        
+        # If it's the first frame or the current frame is empty, we can't calculate speed
+        if i == 0 or not curr_data:
+            avg_speeds.append(None)
+            continue
+            
+        # Get the previous frame to calculate the difference
+        prev_fid = sorted_frame_ids[i-1]
+        prev_data = predictions.get(str(prev_fid), {})
+        
+        if not prev_data:
+            avg_speeds.append(None)
+            continue
+            
+        # Time difference in seconds (accounts for potential gaps in frame IDs)
+        frame_diff = curr_fid - prev_fid
+        time_diff = frame_diff / fps
+        
+        joint_speeds = []
+        for joint_id, curr_coords in curr_data.items():
+            if joint_id in prev_data:
+                prev_coords = prev_data[joint_id]
+                
+                # Calculate Euclidean distance between the joint's previous and current position
+                dist = math.sqrt(sum((c - p) ** 2 for c, p in zip(curr_coords, prev_coords)))
+                
+                # Speed = distance / time (m/s)
+                speed = dist / time_diff
+                joint_speeds.append(speed)
+        
+        # Average the speeds of all valid joints for this frame
+        if joint_speeds:
+            avg_speeds.append(sum(joint_speeds) / len(joint_speeds))
+        else:
+            avg_speeds.append(None)
+
+    # Filter out None values to calculate axis limits safely
+    valid_speeds = [s for s in avg_speeds if s is not None]
+    
+    if not valid_speeds:
+        print("No valid data points to plot.")
+        return
+
+    # --- 2. Setup the Plot ---
+    fig, ax = plt.subplots(figsize=(10, 6))
+    
+    # Plot the line (Matplotlib will break the line where data is None)
+    line, = ax.plot(frames, avg_speeds, color='darkorange', linewidth=2, label='Avg Speed (m/s)')
+    
+    # Styling
+    ax.set_title(title, fontsize=14)
+    ax.set_xlabel('Frame ID', fontsize=12)
+    ax.set_ylabel('Speed (m/s)', fontsize=12)
+    ax.grid(True, linestyle=':', alpha=0.6)
+    
+    # Set axis limits
+    ax.set_xlim(min(frames), max(frames))
+    y_max = max(valid_speeds)
+    ax.set_ylim(0, y_max * 1.1) 
+
+    # --- 3. Initialize Animation Elements ---
+    # Vertical cursor line
+    cursor = ax.axvline(x=frames[0], color='red', linestyle='--', linewidth=2, alpha=0.8)
+    
+    # Text annotation box
+    text_annotation = ax.text(0.02, 0.95, '', transform=ax.transAxes, 
+                              verticalalignment='top', bbox=dict(boxstyle='round', facecolor='white', alpha=0.8))
+
+    ax.legend(loc='upper right')
+
+    # --- 4. Define Update Function ---
+    def update(frame_idx):
+        current_fid = frames[frame_idx]
+        current_speed = avg_speeds[frame_idx]
+        
+        # Move the red cursor
+        cursor.set_xdata([current_fid])
+        
+        # Update text
+        if current_speed is not None:
+            status_text = f"Frame: {current_fid}\nSpeed: {current_speed:.4f} m/s"
+        else:
+            status_text = f"Frame: {current_fid}\nSpeed: No Data"
+            
+        text_annotation.set_text(status_text)
+        
+        return cursor, text_annotation
+
+    # --- 5. Create and Save Animation ---
+    print(f"Generating GIF with {len(frames)} frames...")
+    ani = animation.FuncAnimation(
+        fig, 
+        update, 
+        frames=len(frames), 
+        interval=duration_ms, 
+        blit=True
+    )
+    
+    ani.save(output_path, writer='pillow')
+    print(f"Saved to {output_path}")
+    plt.close()
